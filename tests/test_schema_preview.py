@@ -246,3 +246,55 @@ class TestEdgeCases:
         assert "a: dict" in result
         assert "b: int" in result
         assert "c: int" in result
+
+
+# ── top-level iterables ───────────────────────────────────────────
+
+
+class TestTopLevelIterables:
+    def test_list_of_ints(self) -> None:
+        result = preview([1, 2, 3], print_result=False)
+        assert result == "root: list[int]"
+
+    def test_tuple_of_ints(self) -> None:
+        result = preview((1, 2, 3), print_result=False)
+        assert result == "root: tuple[int]"
+
+    def test_set_of_ints(self) -> None:
+        result = preview({1, 2, 3}, print_result=False)
+        assert result == "root: set[int]"
+
+    def test_list_of_dicts(self) -> None:
+        data = [
+            {"action": "login", "timestamp": 167890123},
+            {"action": "login", "timestamp": 167890123},
+            {"action": "login", "result": None},
+            {"action": "login", "result": 1, "number": [1, 2, 3]},
+        ]
+        result = preview(data, print_result=False)
+        expected = textwrap.dedent("""\
+            root: list[dict]
+            ├── action: str
+            ├── timestamp: int
+            ├── result: ['NoneType', 'int']
+            └── number: list[int]""")
+        assert result == expected
+
+    def test_empty_list(self) -> None:
+        result = preview([], print_result=False)
+        assert result == "root: list"
+
+    def test_empty_tuple(self) -> None:
+        result = preview((), print_result=False)
+        assert result == "root: tuple"
+
+    def test_frozenset_of_strings(self) -> None:
+        result = preview(frozenset({"a", "b"}), print_result=False)
+        assert result == "root: frozenset[str]"
+
+    def test_tuple_of_dicts(self) -> None:
+        data = ({"x": 1}, {"x": 2, "y": "hello"})
+        result = preview(data, print_result=False)
+        assert "root: tuple[dict]" in result
+        assert "x: int" in result
+        assert "y: str" in result

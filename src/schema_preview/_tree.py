@@ -12,6 +12,14 @@ Produces output like::
     └── history: list[dict]
         ├── action: str
         └── timestamp: int
+
+Non-dict root values are also supported::
+
+    root: list[int]
+
+    root: list[dict]
+    ├── action: str
+    └── timestamp: int
 """
 
 from __future__ import annotations
@@ -24,6 +32,9 @@ _ELBOW = "└── "
 _PIPE = "│   "
 _SPACE = "    "
 
+# Sequence type names that support ``type[element]`` formatting.
+_SEQUENCE_TYPES = {"list", "tuple", "set", "frozenset"}
+
 
 def render(node: SchemaNode) -> str:
     """Return a multi-line Unicode tree string for *node*."""
@@ -34,10 +45,11 @@ def render(node: SchemaNode) -> str:
 
 def _format_type(node: SchemaNode) -> str:
     """Format the type annotation shown after the colon."""
-    if node.types == ["list"]:
+    if len(node.types) == 1 and node.types[0] in _SEQUENCE_TYPES:
+        seq_type = node.types[0]
         if node.element_type:
-            return f"list[{node.element_type}]"
-        return "list"
+            return f"{seq_type}[{node.element_type}]"
+        return seq_type
     if node.types == ["dict"]:
         return "dict"
     if len(node.types) == 1:
@@ -54,7 +66,12 @@ def _render_node(
     is_root: bool,
 ) -> None:
     if is_root:
-        lines.append(f"{prefix}{node.key}")
+        if node.types == ["dict"]:
+            # Dict root: show just the key name (classic style).
+            lines.append(f"{prefix}{node.key}")
+        else:
+            # Non-dict root (list, tuple, set, primitive, …): show type.
+            lines.append(f"{prefix}{node.key}: {_format_type(node)}")
     else:
         lines.append(f"{prefix}{node.key}: {_format_type(node)}")
 

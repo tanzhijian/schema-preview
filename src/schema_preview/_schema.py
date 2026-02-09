@@ -98,10 +98,11 @@ def _infer_sequence(
     4. If all elements share one primitive type → ``list[<type>]``.
     5. Mixed types → emit a warning and fall back to ``list``.
     """
+    container_type = _type_name(data)  # "list", "tuple", "set", …
     sampled: list[Any] = list(islice(data, max_items))
 
     if not sampled:
-        return SchemaNode(key=key, types=["list"])
+        return SchemaNode(key=key, types=[container_type])
 
     type_names: set[str] = {_type_name(v) for v in sampled}
 
@@ -110,7 +111,7 @@ def _infer_sequence(
         children = _merge_dict_schemas(sampled, max_items=max_items)
         return SchemaNode(
             key=key,
-            types=["list"],
+            types=[container_type],
             children=children,
             element_type="dict",
         )
@@ -120,7 +121,7 @@ def _infer_sequence(
         (element_type,) = type_names
         return SchemaNode(
             key=key,
-            types=["list"],
+            types=[container_type],
             element_type=element_type,
         )
 
@@ -129,7 +130,7 @@ def _infer_sequence(
         f"Key '{key}': mixed types in list: {sorted(type_names)}",
         stacklevel=2,
     )
-    return SchemaNode(key=key, types=["list"])
+    return SchemaNode(key=key, types=[container_type])
 
 
 def _merge_dict_schemas(
