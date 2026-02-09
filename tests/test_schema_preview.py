@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import textwrap
 import warnings
+from pathlib import Path
 
 import pytest
 
@@ -187,19 +188,51 @@ class TestDeepNesting:
 
 
 class TestCLI:
-    def test_file_argument(self, tmp_path: pytest.TempPathFactory) -> None:
+    @staticmethod
+    def _get_data_path(filename: str) -> Path:
+        """Get path to test data file."""
+        return Path(__file__).parent / "data" / filename
+
+    def test_dict_file(self) -> None:
+        """Test CLI with a real dict JSON file (sports game data)."""
         import subprocess
 
-        p = tmp_path / "test.json"  # type: ignore[operator]
-        p.write_text(json.dumps({"name": "test", "value": 42}))
+        data_file = self._get_data_path("dict.json")
         result = subprocess.run(
-            ["uv", "run", "schema-preview", str(p)],
+            ["uv", "run", "schema-preview", str(data_file)],
             capture_output=True,
             text=True,
         )
         assert result.returncode == 0
-        assert "name: str" in result.stdout
-        assert "value: int" in result.stdout
+        # Check top-level keys
+        assert "id: int" in result.stdout
+        assert "dateTime: str" in result.stdout
+        assert "squadHome: dict" in result.stdout
+        assert "squadAway: dict" in result.stdout
+        # Check nested structure
+        assert "players: list[dict]" in result.stdout
+        assert "substitutions: list[dict]" in result.stdout
+
+    def test_list_file(self) -> None:
+        """Test CLI with a real list JSON file (team lineups)."""
+        import subprocess
+
+        data_file = self._get_data_path("list.json")
+        result = subprocess.run(
+            ["uv", "run", "schema-preview", str(data_file)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        # Check root is list[dict]
+        assert "root: list[dict]" in result.stdout
+        # Check top-level keys in dict elements
+        assert "team_id: int" in result.stdout
+        assert "team_name: str" in result.stdout
+        assert "lineup: list[dict]" in result.stdout
+        # Check nested structure
+        assert "player_id: int" in result.stdout
+        assert "country: dict" in result.stdout
 
     def test_stdin(self) -> None:
         import subprocess
@@ -214,18 +247,26 @@ class TestCLI:
         assert result.returncode == 0
         assert "x: list[int]" in result.stdout
 
-    def test_max_items_flag(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_max_items_flag(self) -> None:
+        """Test --max-items flag with dict file."""
         import subprocess
 
-        p = tmp_path / "test.json"  # type: ignore[operator]
-        p.write_text(json.dumps({"items": list(range(100))}))
+        data_file = self._get_data_path("dict.json")
         result = subprocess.run(
-            ["uv", "run", "schema-preview", str(p), "--max-items", "5"],
+            [
+                "uv",
+                "run",
+                "schema-preview",
+                str(data_file),
+                "--max-items",
+                "5",
+            ],
             capture_output=True,
             text=True,
         )
         assert result.returncode == 0
-        assert "items: list[int]" in result.stdout
+        # Should still show structure, just limited sampling
+        assert "players: list[dict]" in result.stdout
 
 
 # ── edge cases ────────────────────────────────────────────────────
