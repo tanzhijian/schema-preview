@@ -6,13 +6,24 @@ import warnings
 
 import pytest
 
-from schema_preview import preview
+from schema_preview import preview, schema_of
 from schema_preview._schema import infer_schema
 
 # ── basic rendering ────────────────────────────────────────────────
 
 
-class TestBasicPreview:
+class TestPreview:
+    def test_prints_to_stdout(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        result = preview({"a": 1, "b": "hello"})
+        assert result is None
+        captured = capsys.readouterr()
+        assert "a: int" in captured.out
+        assert "b: str" in captured.out
+
+
+class TestSchemaOf:
     def test_full_example(self) -> None:
         """The showcase example from the README."""
         my_dict = {
@@ -40,21 +51,21 @@ class TestBasicPreview:
             └── history: list[dict]
                 ├── action: str
                 └── timestamp: int""")
-        assert preview(my_dict, print_result=False) == expected
+        assert schema_of(my_dict) == expected
 
     def test_flat_dict(self) -> None:
         data = {"a": 1, "b": "hello", "c": 3.14}
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "a: int" in result
         assert "b: str" in result
         assert "c: float" in result
 
     def test_empty_dict(self) -> None:
-        result = preview({}, print_result=False)
+        result = schema_of({})
         assert result == "root"
 
     def test_empty_list_value(self) -> None:
-        result = preview({"items": []}, print_result=False)
+        result = schema_of({"items": []})
         assert "items: list" in result
 
 
@@ -63,16 +74,16 @@ class TestBasicPreview:
 
 class TestListInference:
     def test_homogeneous_list(self) -> None:
-        result = preview({"x": [1, 2, 3]}, print_result=False)
+        result = schema_of({"x": [1, 2, 3]})
         assert "x: list[int]" in result
 
     def test_list_of_strings(self) -> None:
-        result = preview({"tags": ["a", "b"]}, print_result=False)
+        result = schema_of({"tags": ["a", "b"]})
         assert "tags: list[str]" in result
 
     def test_list_of_dicts(self) -> None:
         data = {"rows": [{"id": 1}, {"id": 2}]}
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "rows: list[dict]" in result
         assert "id: int" in result
 
@@ -80,7 +91,7 @@ class TestListInference:
         data = {"vals": [1, "two", 3]}
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            result = preview(data, print_result=False)
+            result = schema_of(data)
             assert len(w) == 1
             assert "mixed types" in str(w[0].message)
         assert "vals: list" in result
@@ -99,7 +110,7 @@ class TestMergedDictKeys:
                 {"action": "login", "result": 1},
             ],
         }
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "action: str" in result
         assert "timestamp: int" in result
         assert "result:" in result
@@ -114,7 +125,7 @@ class TestMergedDictKeys:
                 {"k": 3},
             ]
         }
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "k: int" in result
 
 
@@ -133,7 +144,7 @@ class TestMaxItems:
     def test_large_list_performance(self) -> None:
         """Ensure a huge list doesn't blow up."""
         data = {"big": list(range(1_000_000))}
-        result = preview(data, max_items=5, print_result=False)
+        result = schema_of(data, max_items=5)
         assert "big: list[int]" in result
 
 
@@ -167,7 +178,7 @@ class TestDeepNesting:
                 }
             }
         }
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "level1: dict" in result
         assert "level2: dict" in result
         assert "level3: str" in result
@@ -223,16 +234,16 @@ class TestCLI:
 
 class TestEdgeCases:
     def test_none_value(self) -> None:
-        result = preview({"x": None}, print_result=False)
+        result = schema_of({"x": None})
         assert "x: NoneType" in result
 
     def test_bool_value(self) -> None:
-        result = preview({"flag": True}, print_result=False)
+        result = schema_of({"flag": True})
         assert "flag: bool" in result
 
     def test_nested_list_of_lists(self) -> None:
         data = {"matrix": [[1, 2], [3, 4]]}
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "matrix: list[list]" in result
 
     def test_list_with_nested_dicts_different_depths(self) -> None:
@@ -242,7 +253,7 @@ class TestEdgeCases:
                 {"a": {"b": 2, "c": 3}},
             ]
         }
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "a: dict" in result
         assert "b: int" in result
         assert "c: int" in result
@@ -253,15 +264,15 @@ class TestEdgeCases:
 
 class TestTopLevelIterables:
     def test_list_of_ints(self) -> None:
-        result = preview([1, 2, 3], print_result=False)
+        result = schema_of([1, 2, 3])
         assert result == "root: list[int]"
 
     def test_tuple_of_ints(self) -> None:
-        result = preview((1, 2, 3), print_result=False)
+        result = schema_of((1, 2, 3))
         assert result == "root: tuple[int]"
 
     def test_set_of_ints(self) -> None:
-        result = preview({1, 2, 3}, print_result=False)
+        result = schema_of({1, 2, 3})
         assert result == "root: set[int]"
 
     def test_list_of_dicts(self) -> None:
@@ -271,7 +282,7 @@ class TestTopLevelIterables:
             {"action": "login", "result": None},
             {"action": "login", "result": 1, "number": [1, 2, 3]},
         ]
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         expected = textwrap.dedent("""\
             root: list[dict]
             ├── action: str
@@ -281,20 +292,20 @@ class TestTopLevelIterables:
         assert result == expected
 
     def test_empty_list(self) -> None:
-        result = preview([], print_result=False)
+        result = schema_of([])
         assert result == "root: list"
 
     def test_empty_tuple(self) -> None:
-        result = preview((), print_result=False)
+        result = schema_of(())
         assert result == "root: tuple"
 
     def test_frozenset_of_strings(self) -> None:
-        result = preview(frozenset({"a", "b"}), print_result=False)
+        result = schema_of(frozenset({"a", "b"}))
         assert result == "root: frozenset[str]"
 
     def test_tuple_of_dicts(self) -> None:
         data = ({"x": 1}, {"x": 2, "y": "hello"})
-        result = preview(data, print_result=False)
+        result = schema_of(data)
         assert "root: tuple[dict]" in result
         assert "x: int" in result
         assert "y: str" in result
