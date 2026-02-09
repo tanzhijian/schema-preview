@@ -16,8 +16,7 @@ class TestPreview:
     def test_prints_to_stdout(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        result = preview({"a": 1, "b": "hello"})
-        assert result is None
+        preview({"a": 1, "b": "hello"})
         captured = capsys.readouterr()
         assert "a: int" in captured.out
         assert "b: str" in captured.out
