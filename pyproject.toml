@@ -1,0 +1,39 @@
+[project]
+name = "schema-preview"
+version = "0.0.1"
+description = ""
+readme = "README.md"
+authors = [
+    { name = "tanzhijian", email = "tanzhijianorg@outlook.com" }
+]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+schema-preview = "schema_preview:main"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "ruff>=0.15.0",
+]
+
+[tool.ruff]
+lint.select = ["E", "F", "I"]
+line-length = 79
+
+[tool.mypy]
+ignore_missing_imports = true
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests",]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
