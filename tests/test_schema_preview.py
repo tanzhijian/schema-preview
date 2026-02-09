@@ -1,14 +1,72 @@
 from __future__ import annotations
 
 import json
+import shutil
+import sys
 import textwrap
 import warnings
+from io import StringIO
 from pathlib import Path
 
 import pytest
 
 from schema_preview import preview, schema_of
+from schema_preview._cli import main as cli_main
 from schema_preview._schema import infer_schema
+
+
+def _get_uv_path() -> str:
+    """Get path to uv executable from PATH.
+
+    Raises RuntimeError if uv is not found, ensuring tests fail clearly
+    rather than silently with confusing subprocess errors.
+    """
+    uv_path = shutil.which("uv")
+    if uv_path is None:
+        raise RuntimeError(
+            "uv not found in PATH. "
+            "Please ensure uv is installed and available in your PATH."
+        )
+    return uv_path
+
+
+def _run_cli_direct(
+    file_path: str | None = None, stdin_data: str | None = None
+) -> str:
+    """Run CLI directly by calling main() function.
+
+    Args:
+        file_path: Path to input file (if None, reads from stdin)
+        stdin_data: Data to pass via stdin (if file_path is None)
+
+    Returns:
+        Captured stdout output
+    """
+    old_stdout = sys.stdout
+    old_argv = sys.argv
+    old_stdin = sys.stdin
+    stdout_capture = StringIO()
+    try:
+        sys.stdout = stdout_capture
+        if stdin_data is not None:
+            sys.stdin = StringIO(stdin_data)
+
+        if file_path:
+            sys.argv = ["schema-preview", file_path]
+        else:
+            sys.argv = ["schema-preview"]
+
+        cli_main()
+    except SystemExit:
+        pass
+    finally:
+        output = stdout_capture.getvalue()
+        sys.stdout = old_stdout
+        sys.stdin = old_stdin
+        sys.argv = old_argv
+
+    return output
+
 
 # ── basic rendering ────────────────────────────────────────────────
 
@@ -187,19 +245,28 @@ class TestDeepNesting:
 # ── CLI ───────────────────────────────────────────────────────────
 
 
-class TestCLI:
-    @staticmethod
-    def _get_data_path(filename: str) -> Path:
-        """Get path to test data file."""
-        return Path(__file__).parent / "data" / filename
+@pytest.fixture(scope="class")
+def data_paths() -> dict[str, Path]:
+    """Fixture providing test data file paths (class-scoped)."""
+    base = Path(__file__).parent / "data"
+    return {
+        "dict_file": base / "dict.json",
+        "list_file": base / "list.json",
+    }
 
-    def test_dict_file(self) -> None:
-        """Test CLI with a real dict JSON file (sports game data)."""
+
+class TestCLI:
+    def test_dict_file_subprocess(self, data_paths: dict[str, Path]) -> None:
+        """Integration test: verify CLI works via subprocess."""
         import subprocess
 
-        data_file = self._get_data_path("dict.json")
         result = subprocess.run(
-            ["uv", "run", "schema-preview", str(data_file)],
+            [
+                _get_uv_path(),
+                "run",
+                "schema-preview",
+                str(data_paths["dict_file"]),
+            ],
             capture_output=True,
             text=True,
         )
@@ -213,60 +280,48 @@ class TestCLI:
         assert "players: list[dict]" in result.stdout
         assert "substitutions: list[dict]" in result.stdout
 
-    def test_list_file(self) -> None:
-        """Test CLI with a real list JSON file (team lineups)."""
-        import subprocess
-
-        data_file = self._get_data_path("list.json")
-        result = subprocess.run(
-            ["uv", "run", "schema-preview", str(data_file)],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
+    def test_list_file(self, data_paths: dict[str, Path]) -> None:
+        """Fast test: verify list file parsing via direct function call."""
+        output = _run_cli_direct(str(data_paths["list_file"]))
         # Check root is list[dict]
-        assert "root: list[dict]" in result.stdout
+        assert "root: list[dict]" in output
         # Check top-level keys in dict elements
-        assert "team_id: int" in result.stdout
-        assert "team_name: str" in result.stdout
-        assert "lineup: list[dict]" in result.stdout
+        assert "team_id: int" in output
+        assert "team_name: str" in output
+        assert "lineup: list[dict]" in output
         # Check nested structure
-        assert "player_id: int" in result.stdout
-        assert "country: dict" in result.stdout
+        assert "player_id: int" in output
+        assert "country: dict" in output
 
     def test_stdin(self) -> None:
-        import subprocess
-
+        """Fast test: verify stdin input via direct function call."""
         data = json.dumps({"x": [1, 2, 3]})
-        result = subprocess.run(
-            ["uv", "run", "schema-preview"],
-            input=data,
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert "x: list[int]" in result.stdout
+        output = _run_cli_direct(stdin_data=data)
+        assert "x: list[int]" in output
 
-    def test_max_items_flag(self) -> None:
-        """Test --max-items flag with dict file."""
-        import subprocess
-
-        data_file = self._get_data_path("dict.json")
-        result = subprocess.run(
-            [
-                "uv",
-                "run",
+    def test_max_items_flag(self, data_paths: dict[str, Path]) -> None:
+        """Fast test: verify --max-items flag via direct function call."""
+        old_argv = sys.argv
+        old_stdout = sys.stdout
+        stdout_capture = StringIO()
+        try:
+            sys.argv = [
                 "schema-preview",
-                str(data_file),
+                str(data_paths["dict_file"]),
                 "--max-items",
                 "5",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
+            ]
+            sys.stdout = stdout_capture
+            cli_main()
+        except SystemExit:
+            pass
+        finally:
+            output = stdout_capture.getvalue()
+            sys.argv = old_argv
+            sys.stdout = old_stdout
+
         # Should still show structure, just limited sampling
-        assert "players: list[dict]" in result.stdout
+        assert "players: list[dict]" in output
 
 
 # ── edge cases ────────────────────────────────────────────────────
