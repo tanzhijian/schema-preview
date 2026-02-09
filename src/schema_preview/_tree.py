@@ -75,19 +75,8 @@ def _render_node(
     else:
         lines.append(f"{prefix}{node.key}: {_format_type(node)}")
 
-    children = node.children
-    for i, child in enumerate(children):
-        is_last = i == len(children) - 1
-        connector = _ELBOW if is_last else _TEE
-        child_prefix = prefix + (_SPACE if is_last else _PIPE)
-
-        # First, print the child's own line
-        child_line = f"{prefix}{connector}{child.key}: {_format_type(child)}"
-        lines.append(child_line)
-
-        # If the child itself has children, recurse for those grandchildren
-        if child.children:
-            _render_children(child.children, lines, prefix=child_prefix)
+    if node.children:
+        _render_children(node.children, lines, prefix=prefix)
 
 
 def _render_children(

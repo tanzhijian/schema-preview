@@ -51,7 +51,11 @@ def infer_schema(
         How many elements of a list / tuple / set to inspect before
         stopping.  Keeps inference O(1) for huge arrays.
     """
-    return _infer(data, key=key, max_items=max_items)
+    if isinstance(data, dict):
+        return _infer_dict(data, key=key, max_items=max_items)
+    if isinstance(data, (list, tuple, set, frozenset)):
+        return _infer_sequence(data, key=key, max_items=max_items)
+    return SchemaNode(key=key, types=[_type_name(data)])
 
 
 # ------------------------------------------------------------------
@@ -63,21 +67,15 @@ def _type_name(value: Any) -> str:
     return type(value).__name__
 
 
-def _infer(data: Any, *, key: str, max_items: int) -> SchemaNode:
-    if isinstance(data, dict):
-        return _infer_dict(data, key=key, max_items=max_items)
-    if isinstance(data, (list, tuple, set, frozenset)):
-        return _infer_sequence(data, key=key, max_items=max_items)
-    return SchemaNode(key=key, types=[_type_name(data)])
-
-
 def _infer_dict(
     data: dict[str, Any],
     *,
     key: str,
     max_items: int,
 ) -> SchemaNode:
-    children = [_infer(v, key=k, max_items=max_items) for k, v in data.items()]
+    children = [
+        infer_schema(v, key=k, max_items=max_items) for k, v in data.items()
+    ]
     return SchemaNode(key=key, types=["dict"], children=children)
 
 
@@ -184,12 +182,7 @@ def _merge_dict_schemas(
             children.append(node)
             continue
 
-        # Single primitive type
-        if len(distinct) == 1:
-            children.append(SchemaNode(key=k, types=distinct))
-            continue
-
-        # Multiple types → keep them all
+        # Single primitive type, or multiple types → keep them all
         children.append(SchemaNode(key=k, types=distinct))
 
     return children
