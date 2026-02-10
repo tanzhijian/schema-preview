@@ -8,6 +8,7 @@ Quickly visualise the schema of Python objects as pretty Unicode tree diagrams.
 
 - **Zero dependencies** — pure Python stdlib only
 - **Works with any nested data** — dicts, lists, tuples, sets, and arbitrary values
+- **File path support** — pass `.json` file paths directly (as `str` or `pathlib.Path`)
 - **Smart merging** — automatically merges schemas across list-of-dicts
 - **CLI + library API** — use as a command-line tool or import as a library
 - **Fast sampling** — large payloads are sampled (default: first 10 items)
@@ -42,6 +43,15 @@ my_data = {
 
 preview(my_data)  # prints to stdout
 text = schema_of(my_data)  # returns string
+```
+
+You can also pass file paths directly:
+
+```python
+from pathlib import Path
+
+preview(Path("data.json"))        # pathlib.Path
+preview("data.json")              # or string path
 ```
 
 Output:

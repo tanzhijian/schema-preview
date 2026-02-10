@@ -404,3 +404,86 @@ class TestTopLevelIterables:
         assert "root: tuple[dict]" in result
         assert "x: int" in result
         assert "y: str" in result
+
+
+# ── file path support ──────────────────────────────────────────────
+
+
+class TestFilePath:
+    """Test that preview() and schema_of() accept file paths."""
+
+    @pytest.fixture(scope="class")
+    def data_dir(self) -> Path:
+        return Path(__file__).parent / "data"
+
+    def test_path_object(self, data_dir: Path) -> None:
+        """Path objects are loaded and parsed as JSON."""
+        path = data_dir / "dict.json"
+        result = schema_of(path)
+        assert "id: int" in result
+        assert "squadHome: dict" in result
+
+    def test_path_string(self, data_dir: Path) -> None:
+        """String paths to existing files are loaded."""
+        path_str = str(data_dir / "dict.json")
+        result = schema_of(path_str)
+        assert "id: int" in result
+        assert "squadHome: dict" in result
+
+    def test_path_object_list_json(self, data_dir: Path) -> None:
+        """Path to a JSON file containing a list."""
+        path = data_dir / "list.json"
+        result = schema_of(path)
+        assert "root: list[dict]" in result
+        assert "team_id: int" in result
+
+    def test_preview_with_path(
+        self,
+        data_dir: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """preview() works with Path objects."""
+        path = data_dir / "dict.json"
+        preview(path)
+        captured = capsys.readouterr()
+        assert "id: int" in captured.out
+
+    def test_preview_with_string_path(
+        self,
+        data_dir: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """preview() works with string paths."""
+        path_str = str(data_dir / "dict.json")
+        preview(path_str)
+        captured = capsys.readouterr()
+        assert "id: int" in captured.out
+
+    def test_path_not_found(self) -> None:
+        """FileNotFoundError for non-existent path."""
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            schema_of(Path("/nonexistent/file.json"))
+
+    def test_unsupported_extension(self, tmp_path: Path) -> None:
+        """ValueError for non-.json files."""
+        txt = tmp_path / "data.txt"
+        txt.write_text("hello")
+        with pytest.raises(ValueError, match="Unsupported file"):
+            schema_of(txt)
+
+    def test_string_not_a_path(self) -> None:
+        """Plain strings that aren't files stay as data."""
+        result = schema_of("hello")
+        assert result == "root: str"
+
+    def test_relative_string_path(self, data_dir: Path) -> None:
+        """Relative string paths work when they resolve."""
+        import os
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(data_dir.parent.parent)
+            result = schema_of("tests/data/dict.json")
+            assert "id: int" in result
+        finally:
+            os.chdir(old_cwd)

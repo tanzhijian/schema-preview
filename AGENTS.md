@@ -152,8 +152,12 @@ tests/
 
 ## Key Design Decisions
 
-- Pipeline: `data → infer_schema() → SchemaNode tree → render() → string`.
+- Pipeline: `data → _maybe_load() → infer_schema() → SchemaNode tree → render() → string`.
   Keep these stages separate.
+- **Path detection**: `Path` objects always treated as files; strings checked with
+  `Path.is_file()` to avoid false positives (so `schema_of("hello")` still works).
+- **File validation**: only `.json` files allowed; `FileNotFoundError` if missing,
+  `ValueError` if wrong extension.
 - Lists are **sampled** (`max_items=10` default) via `itertools.islice`.
 - Merging list-of-dicts: collect all keys across sampled dicts with type sets.
 - Renderer uses Unicode box-drawing chars (`├── `, `└── `, `│   `).
