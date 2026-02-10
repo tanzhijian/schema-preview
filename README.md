@@ -57,7 +57,7 @@ preview("data.json")              # or string path
 Output:
 
 ```
-root
+root: dict
 ├── user_id: int
 ├── profile: dict
 │   ├── nickname: str

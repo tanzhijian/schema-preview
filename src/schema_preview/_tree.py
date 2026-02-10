@@ -2,7 +2,7 @@
 
 Produces output like::
 
-    root
+    root: dict
     ├── user_id: int
     ├── profile: dict
     │   ├── nickname: str
@@ -65,15 +65,8 @@ def _render_node(
     prefix: str,
     is_root: bool,
 ) -> None:
-    if is_root:
-        if node.types == ["dict"]:
-            # Dict root: show just the key name (classic style).
-            lines.append(f"{prefix}{node.key}")
-        else:
-            # Non-dict root (list, tuple, set, primitive, …): show type.
-            lines.append(f"{prefix}{node.key}: {_format_type(node)}")
-    else:
-        lines.append(f"{prefix}{node.key}: {_format_type(node)}")
+    # Always show type annotation for root and non-root nodes
+    lines.append(f"{prefix}{node.key}: {_format_type(node)}")
 
     if node.children:
         _render_children(node.children, lines, prefix=prefix)

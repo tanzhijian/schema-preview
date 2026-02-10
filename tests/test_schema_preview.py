@@ -99,7 +99,7 @@ class TestSchemaOf:
             ],
         }
         expected = textwrap.dedent("""\
-            root
+            root: dict
             ├── user_id: int
             ├── profile: dict
             │   ├── nickname: str
@@ -120,7 +120,7 @@ class TestSchemaOf:
 
     def test_empty_dict(self) -> None:
         result = schema_of({})
-        assert result == "root"
+        assert result == "root: dict"
 
     def test_empty_list_value(self) -> None:
         result = schema_of({"items": []})
