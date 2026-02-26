@@ -66,8 +66,8 @@ def _format_type(node: SchemaNode) -> str:
         if compound in _SEQUENCE_TYPES and not node.element_type:
             return f"NoneType | {compound}"
 
-    # Multiple types – show as list of strings
-    return repr(node.types)
+    # Multiple types – use pipe syntax (e.g. str | int)
+    return " | ".join(node.types)
 
 
 def _render_node(

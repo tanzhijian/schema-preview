@@ -171,9 +171,7 @@ class TestMergedDictKeys:
         result = schema_of(data)
         assert "action: str" in result
         assert "timestamp: int" in result
-        assert "result:" in result
-        assert "'NoneType'" in result
-        assert "'int'" in result
+        assert "result: NoneType | int" in result
 
     def test_all_keys_same(self) -> None:
         data = {
@@ -261,7 +259,7 @@ class TestNullableCompoundTypes:
             {"x": None},
         ]
         result = schema_of(data)
-        assert "x: ['NoneType', 'int']" in result
+        assert "x: NoneType | int" in result
 
 
 # ── max_items sampling ────────────────────────────────────────────
@@ -459,7 +457,7 @@ class TestTopLevelIterables:
             root: list[dict]
             ├── action: str
             ├── timestamp: int
-            ├── result: ['NoneType', 'int']
+            ├── result: NoneType | int
             └── number: list[int]""")
         assert result == expected
 
