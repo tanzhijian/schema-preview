@@ -54,6 +54,18 @@ def _format_type(node: SchemaNode) -> str:
         return "dict"
     if len(node.types) == 1:
         return node.types[0]
+
+    # Nullable compound types – e.g. NoneType | dict, NoneType | list[int]
+    non_none = [t for t in node.types if t != "NoneType"]
+    if "NoneType" in node.types and len(non_none) == 1:
+        compound = non_none[0]
+        if compound in _SEQUENCE_TYPES and node.element_type:
+            return f"NoneType | {compound}[{node.element_type}]"
+        if compound == "dict" and node.children:
+            return "NoneType | dict"
+        if compound in _SEQUENCE_TYPES and not node.element_type:
+            return f"NoneType | {compound}"
+
     # Multiple types – show as list of strings
     return repr(node.types)
 

@@ -187,6 +187,83 @@ class TestMergedDictKeys:
         assert "k: int" in result
 
 
+# ── nullable compound types ───────────────────────────────────────
+
+
+class TestNullableCompoundTypes:
+    def test_nullable_dict_expanded(self) -> None:
+        """NoneType | dict keys should recurse into children."""
+        data = [
+            {"id": 1, "details": {"x": 1, "y": "hello"}},
+            {"id": 2, "details": None},
+        ]
+        result = schema_of(data)
+        expected = textwrap.dedent("""\
+            root: list[dict]
+            ├── id: int
+            └── details: NoneType | dict
+                ├── x: int
+                └── y: str""")
+        assert result == expected
+
+    def test_nullable_list_expanded(self) -> None:
+        """NoneType | list keys should recurse into elements."""
+        data = [
+            {"id": 1, "tags": ["a", "b"]},
+            {"id": 2, "tags": None},
+        ]
+        result = schema_of(data)
+        expected = textwrap.dedent("""\
+            root: list[dict]
+            ├── id: int
+            └── tags: NoneType | list[str]""")
+        assert result == expected
+
+    def test_nullable_list_of_dicts_expanded(self) -> None:
+        """NoneType | list[dict] should expand dict children."""
+        data = [
+            {"id": 1, "items": [{"k": 1}, {"k": 2}]},
+            {"id": 2, "items": None},
+        ]
+        result = schema_of(data)
+        expected = textwrap.dedent("""\
+            root: list[dict]
+            ├── id: int
+            └── items: NoneType | list[dict]
+                └── k: int""")
+        assert result == expected
+
+    def test_multiple_nullable_dicts(self) -> None:
+        """Multiple nullable dict fields are all expanded."""
+        data = [
+            {
+                "id": 1,
+                "parent": None,
+                "context": {"env": "prod"},
+            },
+            {
+                "id": 2,
+                "parent": {"id": 1, "name": "a"},
+                "context": None,
+            },
+        ]
+        result = schema_of(data)
+        assert "parent: NoneType | dict" in result
+        assert "context: NoneType | dict" in result
+        assert "id: int" in result
+        assert "name: str" in result
+        assert "env: str" in result
+
+    def test_nullable_primitive_not_expanded(self) -> None:
+        """NoneType | int should NOT be expanded (no children)."""
+        data = [
+            {"x": 1},
+            {"x": None},
+        ]
+        result = schema_of(data)
+        assert "x: ['NoneType', 'int']" in result
+
+
 # ── max_items sampling ────────────────────────────────────────────
 
 

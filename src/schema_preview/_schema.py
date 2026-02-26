@@ -182,6 +182,41 @@ def _merge_dict_schemas(
             children.append(node)
             continue
 
+        # Nullable dict → recurse into the non-None dict values
+        if set(distinct) == {"NoneType", "dict"}:
+            dict_vals = [v for v in key_values[k] if isinstance(v, dict)]
+            if dict_vals:
+                merged_children = _merge_dict_schemas(
+                    dict_vals, max_items=max_items
+                )
+                children.append(
+                    SchemaNode(
+                        key=k,
+                        types=distinct,
+                        children=merged_children,
+                    )
+                )
+                continue
+
+        # Nullable list → recurse into the non-None list values
+        if set(distinct) == {"NoneType", "list"}:
+            list_vals = [
+                item
+                for v in key_values[k]
+                if isinstance(v, list)
+                for item in v
+            ]
+            if list_vals:
+                node = _infer_sequence(
+                    list_vals,
+                    key=k,
+                    max_items=max_items,
+                )
+                # Preserve the nullable type annotation
+                node.types = distinct
+                children.append(node)
+                continue
+
         # Single primitive type, or multiple types → keep them all
         children.append(SchemaNode(key=k, types=distinct))
 
