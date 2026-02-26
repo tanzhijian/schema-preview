@@ -160,4 +160,9 @@ tests/
   `ValueError` if wrong extension.
 - Lists are **sampled** (`max_items=10` default) via `itertools.islice`.
 - Merging list-of-dicts: collect all keys across sampled dicts with type sets.
+- **Mixed types**: displayed using pipe syntax (e.g. `NoneType | int`, `str | int | float`).
+- **Nullable compound types**: when merging dicts and a key has type set
+  `{NoneType, dict}` or `{NoneType, list}`, recursively expand into the
+  non-None values to show inner structure with proper pipe syntax
+  (e.g. `NoneType | dict` with children, `NoneType | list[str]` with element type).
 - Renderer uses Unicode box-drawing chars (`├── `, `└── `, `│   `).
