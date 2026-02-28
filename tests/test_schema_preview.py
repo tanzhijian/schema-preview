@@ -252,6 +252,7 @@ def data_paths() -> dict[str, Path]:
     return {
         "dict_file": base / "dict.json",
         "list_file": base / "list.json",
+        "jsonl_file": base / "events.jsonl",
     }
 
 
@@ -322,6 +323,59 @@ class TestCLI:
 
         # Should still show structure, just limited sampling
         assert "players: list[dict]" in output
+
+    def test_jsonl_file(self, data_paths: dict[str, Path]) -> None:
+        """Fast test: verify JSONL file parsing via direct call."""
+        output = _run_cli_direct(str(data_paths["jsonl_file"]))
+        assert "root: list[dict]" in output
+        assert "event_id: int" in output
+        assert "type: str" in output
+        assert "minute: int" in output
+        assert "player: str" in output
+        assert "team_id: int" in output
+
+    def test_jsonl_file_subprocess(self, data_paths: dict[str, Path]) -> None:
+        """Integration test: verify JSONL via subprocess."""
+        import subprocess
+
+        result = subprocess.run(
+            [
+                _get_uv_path(),
+                "run",
+                "schema-preview",
+                str(data_paths["jsonl_file"]),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "root: list[dict]" in result.stdout
+        assert "event_id: int" in result.stdout
+        assert "type: str" in result.stdout
+
+    def test_jsonl_stdin(self) -> None:
+        """Fast test: verify --jsonl flag with stdin."""
+        lines = '{"a": 1, "b": "x"}\n{"a": 2, "b": "y"}\n'
+        old_stdout = sys.stdout
+        old_argv = sys.argv
+        old_stdin = sys.stdin
+        stdout_capture = StringIO()
+        try:
+            sys.stdout = stdout_capture
+            sys.stdin = StringIO(lines)
+            sys.argv = ["schema-preview", "--jsonl"]
+            cli_main()
+        except SystemExit:
+            pass
+        finally:
+            output = stdout_capture.getvalue()
+            sys.stdout = old_stdout
+            sys.stdin = old_stdin
+            sys.argv = old_argv
+
+        assert "root: list[dict]" in output
+        assert "a: int" in output
+        assert "b: str" in output
 
 
 # ── edge cases ────────────────────────────────────────────────────
@@ -437,6 +491,22 @@ class TestFilePath:
         assert "root: list[dict]" in result
         assert "team_id: int" in result
 
+    def test_path_object_jsonl(self, data_dir: Path) -> None:
+        """Path to a JSONL file is loaded as list of objects."""
+        path = data_dir / "events.jsonl"
+        result = schema_of(path)
+        assert "root: list[dict]" in result
+        assert "event_id: int" in result
+        assert "type: str" in result
+        assert "minute: int" in result
+
+    def test_path_string_jsonl(self, data_dir: Path) -> None:
+        """String paths to .jsonl files are loaded."""
+        path_str = str(data_dir / "events.jsonl")
+        result = schema_of(path_str)
+        assert "root: list[dict]" in result
+        assert "event_id: int" in result
+
     def test_preview_with_path(
         self,
         data_dir: Path,
@@ -465,7 +535,7 @@ class TestFilePath:
             schema_of(Path("/nonexistent/file.json"))
 
     def test_unsupported_extension(self, tmp_path: Path) -> None:
-        """ValueError for non-.json files."""
+        """ValueError for non-.json/.jsonl files."""
         txt = tmp_path / "data.txt"
         txt.write_text("hello")
         with pytest.raises(ValueError, match="Unsupported file"):

@@ -1,0 +1,5 @@
+{"event_id": 1, "type": "goal", "minute": 23, "player": "Xhaka", "team_id": 904}
+{"event_id": 2, "type": "yellow_card", "minute": 35, "player": "Koch", "team_id": 184}
+{"event_id": 3, "type": "substitution", "minute": 60, "player": "Schick", "team_id": 904}
+{"event_id": 4, "type": "goal", "minute": 72, "player": "Marmoush", "team_id": 184, "assist": "Ekitike"}
+{"event_id": 5, "type": "red_card", "minute": 88, "player": "Tah", "team_id": 904}
