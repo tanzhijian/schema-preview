@@ -31,13 +31,16 @@ def _get_uv_path() -> str:
 
 
 def _run_cli_direct(
-    file_path: str | None = None, stdin_data: str | None = None
+    file_path: str | None = None,
+    stdin_data: str | None = None,
+    extra_args: list[str] | None = None,
 ) -> str:
     """Run CLI directly by calling main() function.
 
     Args:
         file_path: Path to input file (if None, reads from stdin)
         stdin_data: Data to pass via stdin (if file_path is None)
+        extra_args: Additional CLI arguments (e.g. ["--max-items", "5"])
 
     Returns:
         Captured stdout output
@@ -51,10 +54,12 @@ def _run_cli_direct(
         if stdin_data is not None:
             sys.stdin = StringIO(stdin_data)
 
+        argv = ["schema-preview"]
         if file_path:
-            sys.argv = ["schema-preview", file_path]
-        else:
-            sys.argv = ["schema-preview"]
+            argv.append(file_path)
+        if extra_args:
+            argv.extend(extra_args)
+        sys.argv = argv
 
         cli_main()
     except SystemExit:
@@ -321,18 +326,13 @@ class TestDeepNesting:
 
 
 @pytest.fixture(scope="class")
-def data_paths() -> dict[str, Path]:
-    """Fixture providing test data file paths (class-scoped)."""
-    base = Path(__file__).parent / "data"
-    return {
-        "dict_file": base / "dict.json",
-        "list_file": base / "list.json",
-        "jsonl_file": base / "events.jsonl",
-    }
+def data_dir() -> Path:
+    """Fixture providing test data directory (class-scoped)."""
+    return Path(__file__).parent / "data"
 
 
 class TestCLI:
-    def test_dict_file_subprocess(self, data_paths: dict[str, Path]) -> None:
+    def test_dict_file_subprocess(self, data_dir: Path) -> None:
         """Integration test: verify CLI works via subprocess."""
         import subprocess
 
@@ -341,7 +341,7 @@ class TestCLI:
                 _get_uv_path(),
                 "run",
                 "schema-preview",
-                str(data_paths["dict_file"]),
+                str(data_dir / "dict.json"),
             ],
             capture_output=True,
             text=True,
@@ -356,9 +356,9 @@ class TestCLI:
         assert "players: list[dict]" in result.stdout
         assert "substitutions: list[dict]" in result.stdout
 
-    def test_list_file(self, data_paths: dict[str, Path]) -> None:
+    def test_list_file(self, data_dir: Path) -> None:
         """Fast test: verify list file parsing via direct function call."""
-        output = _run_cli_direct(str(data_paths["list_file"]))
+        output = _run_cli_direct(str(data_dir / "list.json"))
         # Check root is list[dict]
         assert "root: list[dict]" in output
         # Check top-level keys in dict elements
@@ -375,33 +375,18 @@ class TestCLI:
         output = _run_cli_direct(stdin_data=data)
         assert "x: list[int]" in output
 
-    def test_max_items_flag(self, data_paths: dict[str, Path]) -> None:
+    def test_max_items_flag(self, data_dir: Path) -> None:
         """Fast test: verify --max-items flag via direct function call."""
-        old_argv = sys.argv
-        old_stdout = sys.stdout
-        stdout_capture = StringIO()
-        try:
-            sys.argv = [
-                "schema-preview",
-                str(data_paths["dict_file"]),
-                "--max-items",
-                "5",
-            ]
-            sys.stdout = stdout_capture
-            cli_main()
-        except SystemExit:
-            pass
-        finally:
-            output = stdout_capture.getvalue()
-            sys.argv = old_argv
-            sys.stdout = old_stdout
-
+        output = _run_cli_direct(
+            str(data_dir / "dict.json"),
+            extra_args=["--max-items", "5"],
+        )
         # Should still show structure, just limited sampling
         assert "players: list[dict]" in output
 
-    def test_jsonl_file(self, data_paths: dict[str, Path]) -> None:
+    def test_jsonl_file(self, data_dir: Path) -> None:
         """Fast test: verify JSONL file parsing via direct call."""
-        output = _run_cli_direct(str(data_paths["jsonl_file"]))
+        output = _run_cli_direct(str(data_dir / "events.jsonl"))
         assert "root: list[dict]" in output
         assert "event_id: int" in output
         assert "type: str" in output
@@ -409,7 +394,7 @@ class TestCLI:
         assert "player: str" in output
         assert "team_id: int" in output
 
-    def test_jsonl_file_subprocess(self, data_paths: dict[str, Path]) -> None:
+    def test_jsonl_file_subprocess(self, data_dir: Path) -> None:
         """Integration test: verify JSONL via subprocess."""
         import subprocess
 
@@ -418,7 +403,7 @@ class TestCLI:
                 _get_uv_path(),
                 "run",
                 "schema-preview",
-                str(data_paths["jsonl_file"]),
+                str(data_dir / "events.jsonl"),
             ],
             capture_output=True,
             text=True,
@@ -431,26 +416,25 @@ class TestCLI:
     def test_jsonl_stdin(self) -> None:
         """Fast test: verify --jsonl flag with stdin."""
         lines = '{"a": 1, "b": "x"}\n{"a": 2, "b": "y"}\n'
-        old_stdout = sys.stdout
-        old_argv = sys.argv
-        old_stdin = sys.stdin
-        stdout_capture = StringIO()
-        try:
-            sys.stdout = stdout_capture
-            sys.stdin = StringIO(lines)
-            sys.argv = ["schema-preview", "--jsonl"]
-            cli_main()
-        except SystemExit:
-            pass
-        finally:
-            output = stdout_capture.getvalue()
-            sys.stdout = old_stdout
-            sys.stdin = old_stdin
-            sys.argv = old_argv
-
+        output = _run_cli_direct(
+            stdin_data=lines,
+            extra_args=["--jsonl"],
+        )
         assert "root: list[dict]" in output
         assert "a: int" in output
         assert "b: str" in output
+
+    def test_file_not_found(self) -> None:
+        """CLI raises FileNotFoundError for missing files."""
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            _run_cli_direct("/nonexistent/file.json")
+
+    def test_unsupported_extension(self, tmp_path: Path) -> None:
+        """CLI raises ValueError for non-.json/.jsonl files."""
+        txt = tmp_path / "data.txt"
+        txt.write_text("hello")
+        with pytest.raises(ValueError, match="Unsupported file"):
+            _run_cli_direct(str(txt))
 
 
 # ── edge cases ────────────────────────────────────────────────────
@@ -540,10 +524,6 @@ class TestTopLevelIterables:
 
 class TestFilePath:
     """Test that preview() and schema_of() accept file paths."""
-
-    @pytest.fixture(scope="class")
-    def data_dir(self) -> Path:
-        return Path(__file__).parent / "data"
 
     def test_path_object(self, data_dir: Path) -> None:
         """Path objects are loaded and parsed as JSON."""

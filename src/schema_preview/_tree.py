@@ -39,7 +39,7 @@ _SEQUENCE_TYPES = {"list", "tuple", "set", "frozenset"}
 def render(node: SchemaNode) -> str:
     """Return a multi-line Unicode tree string for *node*."""
     lines: list[str] = []
-    _render_node(node, lines, prefix="", is_root=True)
+    _render_node(node, lines, prefix="")
     return "\n".join(lines)
 
 
@@ -75,9 +75,8 @@ def _render_node(
     lines: list[str],
     *,
     prefix: str,
-    is_root: bool,
 ) -> None:
-    # Always show type annotation for root and non-root nodes
+    """Render one node and its children."""
     lines.append(f"{prefix}{node.key}: {_format_type(node)}")
 
     if node.children:
@@ -90,6 +89,7 @@ def _render_children(
     *,
     prefix: str,
 ) -> None:
+    """Render child nodes with tree connectors."""
     for i, child in enumerate(children):
         is_last = i == len(children) - 1
         connector = _ELBOW if is_last else _TEE

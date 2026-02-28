@@ -14,18 +14,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import IO, Any
+from pathlib import Path
+from typing import Any
 
+from ._loader import load_jsonl, load_path
 from ._schema import infer_schema
 from ._tree import render
 
 
-def _load_jsonl(f: IO[str]) -> list[Any]:
-    """Parse a JSONL stream (one JSON object per line)."""
-    return [json.loads(line) for line in f if line.strip()]
-
-
 def _build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser."""
     parser = argparse.ArgumentParser(
         prog="schema-preview",
         description=("Quickly preview the schema of a JSON / JSONL file."),
@@ -64,15 +62,13 @@ def main() -> None:
 
     data: Any
     if args.file is not None:
-        is_jsonl = args.file.endswith(".jsonl")
-        with open(args.file, encoding="utf-8") as f:
-            data = _load_jsonl(f) if is_jsonl else json.load(f)
+        data = load_path(Path(args.file))
     else:
         if sys.stdin.isatty():
             parser.print_help()
             sys.exit(1)
         if args.jsonl:
-            data = _load_jsonl(sys.stdin)
+            data = load_jsonl(sys.stdin)
         else:
             data = json.load(sys.stdin)
 

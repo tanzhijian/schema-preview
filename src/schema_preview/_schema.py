@@ -73,6 +73,7 @@ def _infer_dict(
     key: str,
     max_items: int,
 ) -> SchemaNode:
+    """Infer schema for a single dict."""
     children = [
         infer_schema(v, key=k, max_items=max_items) for k, v in data.items()
     ]
@@ -131,6 +132,59 @@ def _infer_sequence(
     return SchemaNode(key=key, types=[container_type])
 
 
+def _merge_all_dicts(
+    key: str,
+    values: list[Any],
+    *,
+    max_items: int,
+) -> SchemaNode:
+    """All values for *key* are dicts -> recurse deeper."""
+    merged = _merge_dict_schemas(values, max_items=max_items)
+    return SchemaNode(key=key, types=["dict"], children=merged)
+
+
+def _merge_all_lists(
+    key: str,
+    values: list[Any],
+    *,
+    max_items: int,
+) -> SchemaNode:
+    """All values for *key* are lists -> flatten and recurse."""
+    flat = [item for lst in values if isinstance(lst, list) for item in lst]
+    return _infer_sequence(flat, key=key, max_items=max_items)
+
+
+def _merge_nullable_dict(
+    key: str,
+    types: list[str],
+    values: list[Any],
+    *,
+    max_items: int,
+) -> SchemaNode | None:
+    """Handle {NoneType, dict} -> recurse into non-None dicts."""
+    dict_vals = [v for v in values if isinstance(v, dict)]
+    if not dict_vals:
+        return None
+    merged = _merge_dict_schemas(dict_vals, max_items=max_items)
+    return SchemaNode(key=key, types=types, children=merged)
+
+
+def _merge_nullable_list(
+    key: str,
+    types: list[str],
+    values: list[Any],
+    *,
+    max_items: int,
+) -> SchemaNode | None:
+    """Handle {NoneType, list} -> recurse into non-None lists."""
+    flat = [item for v in values if isinstance(v, list) for item in v]
+    if not flat:
+        return None
+    node = _infer_sequence(flat, key=key, max_items=max_items)
+    node.types = types  # preserve nullable annotation
+    return node
+
+
 def _merge_dict_schemas(
     dicts: list[dict[str, Any]],
     *,
@@ -154,70 +208,33 @@ def _merge_dict_schemas(
     children: list[SchemaNode] = []
     for k in all_keys:
         distinct = sorted(set(key_types[k]))
+        distinct_set = set(distinct)
 
-        # If all values for this key are dicts → recurse deeper
         if distinct == ["dict"]:
-            merged_children = _merge_dict_schemas(
-                key_values[k], max_items=max_items
-            )
             children.append(
-                SchemaNode(key=k, types=["dict"], children=merged_children)
+                _merge_all_dicts(k, key_values[k], max_items=max_items)
             )
-            continue
-
-        # If all values for this key are lists → recurse
-        if distinct == ["list"]:
-            # Take the first non-empty list to infer element schema
-            node = _infer_sequence(
-                # flatten one level so we sample across all dicts
-                [
-                    item
-                    for lst in key_values[k]
-                    if isinstance(lst, list)
-                    for item in lst
-                ],
-                key=k,
-                max_items=max_items,
+        elif distinct == ["list"]:
+            children.append(
+                _merge_all_lists(k, key_values[k], max_items=max_items)
             )
-            children.append(node)
-            continue
-
-        # Nullable dict → recurse into the non-None dict values
-        if set(distinct) == {"NoneType", "dict"}:
-            dict_vals = [v for v in key_values[k] if isinstance(v, dict)]
-            if dict_vals:
-                merged_children = _merge_dict_schemas(
-                    dict_vals, max_items=max_items
-                )
-                children.append(
-                    SchemaNode(
-                        key=k,
-                        types=distinct,
-                        children=merged_children,
-                    )
-                )
-                continue
-
-        # Nullable list → recurse into the non-None list values
-        if set(distinct) == {"NoneType", "list"}:
-            list_vals = [
-                item
-                for v in key_values[k]
-                if isinstance(v, list)
-                for item in v
-            ]
-            if list_vals:
-                node = _infer_sequence(
-                    list_vals,
-                    key=k,
-                    max_items=max_items,
-                )
-                # Preserve the nullable type annotation
-                node.types = distinct
+        elif distinct_set == {"NoneType", "dict"}:
+            node = _merge_nullable_dict(
+                k, distinct, key_values[k], max_items=max_items
+            )
+            if node is not None:
                 children.append(node)
-                continue
-
-        # Single primitive type, or multiple types → keep them all
-        children.append(SchemaNode(key=k, types=distinct))
+            else:
+                children.append(SchemaNode(key=k, types=distinct))
+        elif distinct_set == {"NoneType", "list"}:
+            node = _merge_nullable_list(
+                k, distinct, key_values[k], max_items=max_items
+            )
+            if node is not None:
+                children.append(node)
+            else:
+                children.append(SchemaNode(key=k, types=distinct))
+        else:
+            children.append(SchemaNode(key=k, types=distinct))
 
     return children

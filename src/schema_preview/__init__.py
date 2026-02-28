@@ -24,11 +24,11 @@ Usage (CLI)::
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from ._cli import main
+from ._loader import load_path
 from ._schema import SchemaNode, infer_schema
 from ._tree import render
 
@@ -41,35 +41,15 @@ __all__ = [
     "schema_of",
 ]
 
-_SUPPORTED_SUFFIXES = {".json", ".jsonl"}
-
-
-def _load_path(path: Path) -> Any:
-    """Read and parse a JSON or JSONL file from *path*."""
-    if not path.is_file():
-        raise FileNotFoundError(f"File not found: {path}")
-    suffix = path.suffix.lower()
-    if suffix not in _SUPPORTED_SUFFIXES:
-        raise ValueError(
-            f"Unsupported file type '{suffix}': "
-            f"only .json and .jsonl files are supported"
-        )
-    with open(path, encoding="utf-8") as f:
-        if suffix == ".jsonl":
-            data: Any = [json.loads(line) for line in f if line.strip()]
-        else:
-            data = json.load(f)
-        return data
-
 
 def _maybe_load(data: Any) -> Any:
     """If *data* is a path, load it; otherwise return as-is."""
     if isinstance(data, Path):
-        return _load_path(data)
+        return load_path(data)
     if isinstance(data, str):
         p = Path(data)
         if p.is_file():
-            return _load_path(p)
+            return load_path(p)
     return data
 
 
