@@ -39,6 +39,7 @@ pass: ruff, mypy strict, pytest.
 src/schema_preview/
 ├── __init__.py       # Public API: preview(), schema_of(), main()
 ├── _cli.py           # CLI entry point (argparse)
+├── _loader.py        # File loading: JSON / JSONL parsing
 ├── _schema.py        # Core engine: SchemaNode dataclass, infer_schema()
 └── _tree.py          # Unicode tree renderer: render()
 tests/
@@ -153,7 +154,8 @@ tests/
 ## Key Design Decisions
 
 - Pipeline: `data → _maybe_load() → infer_schema() → SchemaNode tree → render() → string`.
-  Keep these stages separate.
+  Keep these stages separate.  `_maybe_load()` delegates file I/O to
+  `_loader.load_path()`, which is also shared by the CLI.
 - **Path detection**: `Path` objects always treated as files; strings checked with
   `Path.is_file()` to avoid false positives (so `schema_of("hello")` still works).
 - **File validation**: `.json` and `.jsonl` files allowed;

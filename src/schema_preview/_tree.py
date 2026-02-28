@@ -45,13 +45,16 @@ def render(node: SchemaNode) -> str:
 
 def _format_type(node: SchemaNode) -> str:
     """Format the type annotation shown after the colon."""
+    # Single sequence type -- e.g. list[int], tuple[str]
     if len(node.types) == 1 and node.types[0] in _SEQUENCE_TYPES:
         seq_type = node.types[0]
         if node.element_type:
             return f"{seq_type}[{node.element_type}]"
         return seq_type
+    # Plain dict
     if node.types == ["dict"]:
         return "dict"
+    # Single non-sequence type -- e.g. int, str, bool
     if len(node.types) == 1:
         return node.types[0]
 
@@ -89,7 +92,10 @@ def _render_children(
     *,
     prefix: str,
 ) -> None:
-    """Render child nodes with tree connectors."""
+    """Render child nodes with box-drawing connectors.
+
+    Appends formatted lines to *lines* in place.
+    """
     for i, child in enumerate(children):
         is_last = i == len(children) - 1
         connector = _ELBOW if is_last else _TEE

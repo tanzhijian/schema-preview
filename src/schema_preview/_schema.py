@@ -64,6 +64,7 @@ def infer_schema(
 
 
 def _type_name(value: Any) -> str:
+    """Return the type name of *value* as a string."""
     return type(value).__name__
 
 
@@ -196,7 +197,7 @@ def _merge_dict_schemas(
     all_keys: dict[str, None] = {}
     # key -> list of types seen
     key_types: dict[str, list[str]] = {}
-    # key -> list of sub-values that are dicts or lists (for recursion)
+    # key -> list of all values (used for recursion into dicts/lists)
     key_values: dict[str, list[Any]] = {}
 
     for d in dicts:
@@ -210,14 +211,17 @@ def _merge_dict_schemas(
         distinct = sorted(set(key_types[k]))
         distinct_set = set(distinct)
 
+        # --- all dicts -> recurse deeper --------------------------------
         if distinct == ["dict"]:
             children.append(
                 _merge_all_dicts(k, key_values[k], max_items=max_items)
             )
+        # --- all lists -> flatten and recurse ---------------------------
         elif distinct == ["list"]:
             children.append(
                 _merge_all_lists(k, key_values[k], max_items=max_items)
             )
+        # --- nullable dict {NoneType, dict} -----------------------------
         elif distinct_set == {"NoneType", "dict"}:
             node = _merge_nullable_dict(
                 k, distinct, key_values[k], max_items=max_items
@@ -226,6 +230,7 @@ def _merge_dict_schemas(
                 children.append(node)
             else:
                 children.append(SchemaNode(key=k, types=distinct))
+        # --- nullable list {NoneType, list} -----------------------------
         elif distinct_set == {"NoneType", "list"}:
             node = _merge_nullable_list(
                 k, distinct, key_values[k], max_items=max_items
@@ -234,6 +239,7 @@ def _merge_dict_schemas(
                 children.append(node)
             else:
                 children.append(SchemaNode(key=k, types=distinct))
+        # --- fallback: mixed or primitive types -------------------------
         else:
             children.append(SchemaNode(key=k, types=distinct))
 

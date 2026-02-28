@@ -18,6 +18,7 @@ import json
 from pathlib import Path
 from typing import IO, Any
 
+# File extensions accepted by load_path().
 _SUPPORTED_SUFFIXES = {".json", ".jsonl"}
 
 

@@ -1,3 +1,5 @@
+"""Tests for the schema-preview public API and CLI."""
+
 from __future__ import annotations
 
 import json
@@ -37,13 +39,19 @@ def _run_cli_direct(
 ) -> str:
     """Run CLI directly by calling main() function.
 
-    Args:
-        file_path: Path to input file (if None, reads from stdin)
-        stdin_data: Data to pass via stdin (if file_path is None)
-        extra_args: Additional CLI arguments (e.g. ["--max-items", "5"])
+    Parameters
+    ----------
+    file_path:
+        Path to input file.  If ``None``, reads from stdin.
+    stdin_data:
+        Data to pass via stdin (when *file_path* is ``None``).
+    extra_args:
+        Additional CLI arguments (e.g. ``["--max-items", "5"]``).
 
-    Returns:
-        Captured stdout output
+    Returns
+    -------
+    str
+        Captured stdout output.
     """
     old_stdout = sys.stdout
     old_argv = sys.argv
