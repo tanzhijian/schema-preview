@@ -10,6 +10,8 @@ Quickly visualise the schema of Python objects as pretty Unicode tree diagrams.
 - **Works with any nested data** — dicts, lists, tuples, sets, and arbitrary values
 - **File path support** — pass `.json` or `.jsonl` file paths directly (as `str` or `pathlib.Path`)
 - **Smart merging** — automatically merges schemas across list-of-dicts
+- **Mixed types** — shows union types using pipe syntax (e.g. `NoneType | int`, `str | int`)
+- **Nullable compound expansion** — expands `NoneType | dict` and `NoneType | list` to show inner structure
 - **CLI + library API** — use as a command-line tool or import as a library
 - **Fast sampling** — large payloads are sampled (default: first 10 items)
 
@@ -43,6 +45,28 @@ my_data = {
 
 preview(my_data)  # prints to stdout
 text = schema_of(my_data)  # returns string
+```
+
+**Mixed types and nullable values** are displayed using pipe syntax:
+
+```python
+# Example with nullable and mixed types
+data = [
+    {"id": 1, "name": "A", "tags": ["x", "y"]},
+    {"id": 2, "name": "B", "tags": None},
+    {"id": 3, "name": None, "tags": ["z"]},
+]
+
+preview(data)
+```
+
+Output:
+
+```
+root: list[dict]
+├── id: int
+├── name: NoneType | str
+└── tags: NoneType | list[str]
 ```
 
 You can also pass file paths directly:
