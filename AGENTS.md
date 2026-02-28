@@ -43,7 +43,7 @@ src/schema_preview/
 └── _tree.py          # Unicode tree renderer: render()
 tests/
 ├── test_schema_preview.py   # All tests (single file)
-└── data/                    # JSON fixtures for CLI tests
+└── data/                    # JSON / JSONL fixtures for CLI tests
 ```
 
 ## Code Style
@@ -156,8 +156,9 @@ tests/
   Keep these stages separate.
 - **Path detection**: `Path` objects always treated as files; strings checked with
   `Path.is_file()` to avoid false positives (so `schema_of("hello")` still works).
-- **File validation**: only `.json` files allowed; `FileNotFoundError` if missing,
-  `ValueError` if wrong extension.
+- **File validation**: `.json` and `.jsonl` files allowed;
+  `FileNotFoundError` if missing, `ValueError` if wrong extension.
+  JSONL files are parsed as one JSON object per line.
 - Lists are **sampled** (`max_items=10` default) via `itertools.islice`.
 - Merging list-of-dicts: collect all keys across sampled dicts with type sets.
 - Renderer uses Unicode box-drawing chars (`├── `, `└── `, `│   `).

@@ -8,7 +8,7 @@ Quickly visualise the schema of Python objects as pretty Unicode tree diagrams.
 
 - **Zero dependencies** — pure Python stdlib only
 - **Works with any nested data** — dicts, lists, tuples, sets, and arbitrary values
-- **File path support** — pass `.json` file paths directly (as `str` or `pathlib.Path`)
+- **File path support** — pass `.json` or `.jsonl` file paths directly (as `str` or `pathlib.Path`)
 - **Smart merging** — automatically merges schemas across list-of-dicts
 - **CLI + library API** — use as a command-line tool or import as a library
 - **Fast sampling** — large payloads are sampled (default: first 10 items)
@@ -52,6 +52,7 @@ from pathlib import Path
 
 preview(Path("data.json"))        # pathlib.Path
 preview("data.json")              # or string path
+preview(Path("data.jsonl"))       # JSONL (one object per line)
 ```
 
 Output:
@@ -72,11 +73,17 @@ root: dict
 ### As a CLI
 
 ```bash
-# From a file
+# From a JSON file
 schema-preview data.json
+
+# From a JSONL file (auto-detected by extension)
+schema-preview data.jsonl
 
 # From stdin
 cat data.json | schema-preview
+
+# JSONL from stdin (requires --jsonl flag)
+cat data.jsonl | schema-preview --jsonl
 
 # Adjust sampling
 schema-preview data.json --max-items 50
