@@ -32,6 +32,10 @@ from ._loader import load_path
 from ._schema import SchemaNode, infer_schema
 from ._tree import render
 
+# Strings longer than this or containing newlines are never file paths.
+# 4096 covers PATH_MAX on Linux/macOS; Windows MAX_PATH is 260.
+_MAX_PATH_LEN = 4096
+
 __all__ = [
     "SchemaNode",
     "infer_schema",
@@ -47,6 +51,8 @@ def _maybe_load(data: Any) -> Any:
     if isinstance(data, Path):
         return load_path(data)
     if isinstance(data, str):
+        if len(data) > _MAX_PATH_LEN or "\n" in data:
+            return data
         p = Path(data)
         if p.is_file():
             return load_path(p)
